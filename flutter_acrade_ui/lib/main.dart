@@ -343,7 +343,11 @@ class _ArcadeHomePageState extends State<ArcadeHomePage> {
                               : Center(
                                 child: Text(
                                   games.isNotEmpty ? games[selectedIndex] : '',
-                                  style: const TextStyle(color: Colors.white),
+                                  style: const TextStyle(
+                                    color: game_unselect_col,
+                                    fontSize: 50,
+                                    fontFamily: 'PixelEmulator',
+                                  ),
                                 ),
                               ),
                     ),
