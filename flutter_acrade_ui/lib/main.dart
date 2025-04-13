@@ -6,9 +6,9 @@ import 'package:window_manager/window_manager.dart';
 
 final String executables_path = "..\\executables\\";
 
-final Color game_select_col = Color.fromARGB(255, 255, 255, 0);
-final Color game_unselect_col = Color.fromARGB(255, 255, 255, 255);
-final Color info_text_col = Color.fromARGB(255, 0, 255, 255);
+const Color game_select_col = Color.fromARGB(255, 255, 255, 0);
+const Color game_unselect_col = Color.fromARGB(255, 255, 255, 255);
+const Color info_text_col = Color.fromARGB(255, 0, 255, 255);
 
 Future<void> openExeFile(String pathToExe) async {
   final exeFile = File(pathToExe);
@@ -72,6 +72,7 @@ class ArcadeHomePage extends StatefulWidget {
 
 class _ArcadeHomePageState extends State<ArcadeHomePage> {
   List<String> games = [];
+  Map<String, String> gameDevelopers = {};
   int selectedIndex = 0;
   String? selectedGameImagePath;
   @override
@@ -98,6 +99,19 @@ class _ArcadeHomePageState extends State<ArcadeHomePage> {
                 .toList();
         if (games.isEmpty) games = ['No games found'];
       });
+
+      for (var folder in folders) {
+        final developerName = await _readDeveloperNameFromFolder(folder);
+        setState(() {
+          if (developerName != null) {
+            gameDevelopers[folder.path.split(Platform.pathSeparator).last] =
+                developerName;
+          } else {
+            gameDevelopers[folder.path.split(Platform.pathSeparator).last] =
+                "Unknown Developer";
+          }
+        });
+      }
       _updateGameImage();
     } else {
       setState(() {
@@ -138,6 +152,19 @@ class _ArcadeHomePageState extends State<ArcadeHomePage> {
         _launchSelectedGame();
       }
     }
+  }
+
+  Future<String?> _readDeveloperNameFromFolder(Directory folder) async {
+    final developerFile = File('${folder.path}/developer.txt');
+    if (await developerFile.exists()) {
+      try {
+        final contents = await developerFile.readAsString();
+        return contents.trim();
+      } catch (e) {
+        print('Error reading developer.txt in ${folder.path}: $e');
+      }
+    }
+    return null;
   }
 
   void _launchSelectedGame() async {
@@ -213,57 +240,87 @@ class _ArcadeHomePageState extends State<ArcadeHomePage> {
               height: 1080,
               child: Stack(
                 children: [
+                  Positioned(
+                    left: 60,
+                    top: 480,
+                    child: const Icon(
+                      Icons.arrow_right,
+                      color: game_select_col,
+
+                      size: 100,
+                    ),
+                  ),
                   const Positioned(
-                    top: 16,
+                    top: 58,
                     left: 0,
                     right: 0,
                     child: Center(
                       child: Text(
                         'S2DIO S28 ARTCADE',
                         style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          fontSize: 100,
+                          fontFamily: 'PixelEmulator',
+
+                          color: info_text_col,
                         ),
                       ),
                     ),
                   ),
+
                   Positioned(
-                    left: 100,
-                    top: 400,
+                    left: 165,
+                    top: 334,
+                    width: 580,
+                    height: 420,
                     child: Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children:
                           visibleGames.map((game) {
                             final index = games.indexOf(game);
                             final isSelected = index == selectedIndex;
+                            final developerName = gameDevelopers[game] ?? '';
+
                             return Padding(
                               padding: const EdgeInsets.symmetric(
                                 vertical: 8.0,
                               ),
-                              child: Row(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  if (isSelected)
-                                    const Icon(
-                                      Icons.arrow_right,
-                                      color: Colors.yellow,
-                                    )
-                                  else
-                                    const SizedBox(width: 24),
-                                  Text(
-                                    game,
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      color:
-                                          isSelected
-                                              ? Colors.yellow
-                                              : Colors.white,
-                                      fontWeight:
-                                          isSelected
-                                              ? FontWeight.bold
-                                              : FontWeight.normal,
-                                    ),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        game,
+                                        style: TextStyle(
+                                          fontFamily: 'PixelEmulator',
+                                          fontSize: 38,
+                                          color:
+                                              isSelected
+                                                  ? game_select_col
+                                                  : game_unselect_col,
+                                        ),
+                                      ),
+                                    ],
                                   ),
+                                  if (developerName.isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                        left: 40.0,
+                                        top: 2.0,
+                                      ),
+                                      child: Text(
+                                        developerName,
+                                        style: TextStyle(
+                                          fontFamily: 'PixelEmulator',
+                                          fontSize: 24,
+                                          color:
+                                              isSelected
+                                                  ? game_select_col
+                                                  : game_unselect_col,
+                                        ),
+                                      ),
+                                    ),
                                 ],
                               ),
                             );
@@ -281,7 +338,7 @@ class _ArcadeHomePageState extends State<ArcadeHomePage> {
                           selectedGameImagePath != null
                               ? Image.file(
                                 File(selectedGameImagePath!),
-                                fit: BoxFit.cover,
+                                fit: BoxFit.fill,
                               )
                               : Center(
                                 child: Text(
@@ -292,13 +349,17 @@ class _ArcadeHomePageState extends State<ArcadeHomePage> {
                     ),
                   ),
                   const Positioned(
-                    bottom: 16,
+                    top: 1000,
                     left: 0,
                     right: 0,
                     child: Center(
                       child: Text(
-                        'Games made by students',
-                        style: TextStyle(fontSize: 16, color: Colors.white),
+                        'INDIE & ART GAMES MADE BY CWRU STUDENTS IN ARTS 286',
+                        style: TextStyle(
+                          fontSize: 24,
+                          color: info_text_col,
+                          fontFamily: 'PixelEmulator',
+                        ),
                       ),
                     ),
                   ),
