@@ -4,12 +4,14 @@ import 'package:process_run/process_run.dart';
 import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
 
-final String executables_path = "..\\executables\\";
+final String executables_path = "C:\\executables\\";
 
 const Color game_select_col = Color.fromARGB(255, 255, 255, 0);
 const Color game_unselect_col = Color.fromARGB(255, 255, 255, 255);
 const Color info_text_col = Color.fromARGB(255, 0, 255, 255);
 
+bool canOpenGame = true;
+bool allowKeyPress = true;
 Future<void> openExeFile(String pathToExe) async {
   final exeFile = File(pathToExe);
 
@@ -79,12 +81,12 @@ class _ArcadeHomePageState extends State<ArcadeHomePage> {
   void initState() {
     super.initState();
     _loadGameFolders();
-    RawKeyboard.instance.addListener(_handleKey);
+    ServicesBinding.instance.keyboard.addHandler(_onKey);
   }
 
   @override
   void dispose() {
-    RawKeyboard.instance.removeListener(_handleKey);
+    ServicesBinding.instance.keyboard.removeHandler(_onKey);
     super.dispose();
   }
 
@@ -134,10 +136,11 @@ class _ArcadeHomePageState extends State<ArcadeHomePage> {
     _updateGameImage();
   }
 
-  void _handleKey(RawKeyEvent event) {
-    if (event is RawKeyDownEvent) {
-      final key = event.logicalKey;
+  bool _onKey(KeyEvent event) {
+    if (!allowKeyPress) return false;
 
+    if (event is KeyDownEvent) {
+      final key = event.logicalKey;
       if (key == LogicalKeyboardKey.arrowUp || key == LogicalKeyboardKey.keyA) {
         _moveSelectionUp();
       } else if (key == LogicalKeyboardKey.arrowDown ||
@@ -149,9 +152,12 @@ class _ArcadeHomePageState extends State<ArcadeHomePage> {
         LogicalKeyboardKey.keyN,
         LogicalKeyboardKey.keyM,
       ].contains(key)) {
+        allowKeyPress = false;
         _launchSelectedGame();
       }
     }
+
+    return false;
   }
 
   Future<String?> _readDeveloperNameFromFolder(Directory folder) async {
@@ -167,8 +173,8 @@ class _ArcadeHomePageState extends State<ArcadeHomePage> {
     return null;
   }
 
-  void _launchSelectedGame() async {
-    if (games.isEmpty) return;
+  Future<void> _launchSelectedGame() async {
+    if (games.isEmpty || !canOpenGame) return;
     final gameFolder = Directory('$executables_path${games[selectedIndex]}');
 
     if (await gameFolder.exists()) {
@@ -179,6 +185,7 @@ class _ArcadeHomePageState extends State<ArcadeHomePage> {
 
       if (exeFile != null && exeFile is File) {
         try {
+          canOpenGame = false;
           await run(exeFile.path);
         } catch (e) {
           print('Error launching game: $e');
@@ -187,6 +194,11 @@ class _ArcadeHomePageState extends State<ArcadeHomePage> {
         print('No .exe file found in ${gameFolder.path}');
       }
     }
+
+    await Future.delayed(const Duration(milliseconds: 500), () {
+      canOpenGame = true; //Wait 0.5 seconds before allowing a game to be opened
+      allowKeyPress = true;
+    });
   }
 
   void _updateGameImage() async {
@@ -256,7 +268,7 @@ class _ArcadeHomePageState extends State<ArcadeHomePage> {
                     right: 0,
                     child: Center(
                       child: Text(
-                        'S2DIO S28 ARTCADE',
+                        'S2DIO 286 ARTCADE',
                         style: TextStyle(
                           fontSize: 100,
                           fontFamily: 'PixelEmulator',
