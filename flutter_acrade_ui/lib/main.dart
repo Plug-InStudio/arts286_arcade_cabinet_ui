@@ -3,17 +3,26 @@ import 'dart:io';
 import 'package:process_run/process_run.dart';
 import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:path/path.dart' as p;
+import 'package:win32/win32.dart';
+import 'package:ffi/ffi.dart';
+import 'dart:ffi';
 
 final String executables_path = "C:\\executables\\";
-
+bool isLaunching = false;
 const Color game_select_col = Color.fromARGB(255, 255, 255, 0);
 const Color game_unselect_col = Color.fromARGB(255, 255, 255, 255);
 const Color info_text_col = Color.fromARGB(255, 0, 255, 255);
 
 bool canOpenGame = true;
 bool allowKeyPress = true;
+
 Future<void> openExeFile(String pathToExe) async {
   final exeFile = File(pathToExe);
+
+  if (isLaunching || await isProcessRunning(getFileName(pathToExe))) return;
+
+  isLaunching = true;
 
   if (await exeFile.exists()) {
     try {
@@ -21,10 +30,21 @@ Future<void> openExeFile(String pathToExe) async {
       // print('Executable output:\n${result.stdout}');
     } catch (e) {
       print('Error running exe: $e');
+    } finally {
+      isLaunching = false;
     }
   } else {
     print('Executable not found at: ${exeFile.path}');
   }
+}
+
+String getFileName(String fullPath) {
+  return p.basename(fullPath);
+}
+
+Future<bool> isProcessRunning(String exeName) async {
+  final result = await Process.run('tasklist', []);
+  return result.stdout.toString().contains(exeName);
 }
 
 void main() async {
@@ -136,15 +156,16 @@ class _ArcadeHomePageState extends State<ArcadeHomePage> {
     _updateGameImage();
   }
 
+  int lastPressed = 0;
   bool _onKey(KeyEvent event) {
-    if (!allowKeyPress) return false;
+    final now = DateTime.now().millisecondsSinceEpoch;
 
     if (event is KeyDownEvent) {
       final key = event.logicalKey;
-      if (key == LogicalKeyboardKey.arrowUp || key == LogicalKeyboardKey.keyA) {
+      if (key == LogicalKeyboardKey.arrowUp || key == LogicalKeyboardKey.keyW) {
         _moveSelectionUp();
       } else if (key == LogicalKeyboardKey.arrowDown ||
-          key == LogicalKeyboardKey.keyD) {
+          key == LogicalKeyboardKey.keyS) {
         _moveSelectionDown();
       } else if ([
         LogicalKeyboardKey.keyZ,
@@ -152,7 +173,8 @@ class _ArcadeHomePageState extends State<ArcadeHomePage> {
         LogicalKeyboardKey.keyN,
         LogicalKeyboardKey.keyM,
       ].contains(key)) {
-        allowKeyPress = false;
+        if (now - lastPressed < 2000) return true;
+        lastPressed = now;
         _launchSelectedGame();
       }
     }
@@ -186,7 +208,7 @@ class _ArcadeHomePageState extends State<ArcadeHomePage> {
       if (exeFile != null && exeFile is File) {
         try {
           canOpenGame = false;
-          await run(exeFile.path);
+          await openExeFile(exeFile.path);
         } catch (e) {
           print('Error launching game: $e');
         }
