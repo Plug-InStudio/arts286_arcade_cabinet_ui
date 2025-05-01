@@ -27,7 +27,6 @@ Future<void> openExeFile(String pathToExe) async {
   if (await exeFile.exists()) {
     try {
       final result = await run(exeFile.path);
-      // print('Executable output:\n${result.stdout}');
     } catch (e) {
       print('Error running exe: $e');
     } finally {
@@ -158,8 +157,6 @@ class _ArcadeHomePageState extends State<ArcadeHomePage> {
 
   int lastPressed = 0;
   bool _onKey(KeyEvent event) {
-    final now = DateTime.now().millisecondsSinceEpoch;
-
     if (event is KeyDownEvent) {
       final key = event.logicalKey;
       if (key == LogicalKeyboardKey.arrowUp || key == LogicalKeyboardKey.keyW) {
@@ -173,8 +170,6 @@ class _ArcadeHomePageState extends State<ArcadeHomePage> {
         LogicalKeyboardKey.keyN,
         LogicalKeyboardKey.keyM,
       ].contains(key)) {
-        if (now - lastPressed < 2000) return true;
-        lastPressed = now;
         _launchSelectedGame();
       }
     }
@@ -325,7 +320,7 @@ class _ArcadeHomePageState extends State<ArcadeHomePage> {
                                   Row(
                                     children: [
                                       Text(
-                                        game,
+                                        game.replaceAll('_', ' '),
                                         style: TextStyle(
                                           fontFamily: 'PixelEmulator',
                                           fontSize: 38,
