@@ -25,7 +25,8 @@ Future<void> openExeFile(String pathToExe) async {
 
   if (await exeFile.exists()) {
     try {
-      final result = await run(exeFile.path);
+      final process = Process.run('..\\focus_process\\focus_process.exe', [pathToExe]);
+      print('Running focus process');
     } catch (e) {
       print('Error running exe: $e');
     } finally {
