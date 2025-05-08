@@ -3,6 +3,28 @@
 #include <stdio.h>
 #include <string.h>
 
+// ───── GLOBAL HOOK SETUP ─────
+HHOOK g_hHook = NULL;
+
+LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
+    if (nCode == HC_ACTION) {
+        return 1;  // Block all key input
+    }
+    return CallNextHookEx(g_hHook, nCode, wParam, lParam);
+}
+
+void InstallKeyboardBlockHook() {
+    g_hHook = SetWindowsHookEx(WH_KEYBOARD_LL, LowLevelKeyboardProc, NULL, 0);
+}
+
+void UninstallKeyboardBlockHook() {
+    if (g_hHook) {
+        UnhookWindowsHookEx(g_hHook);
+        g_hHook = NULL;
+    }
+}
+// ─────────────────────────────
+
 HWND FindMainWindow(DWORD processID) {
     HWND hwnd = GetTopWindow(NULL);
     while (hwnd) {
@@ -36,29 +58,24 @@ DWORD FindRunningProcess(const char* exeName) {
     return 0;
 }
 
-
-void force_forground(HWND hwnd, DWORD pid)
-{
+void force_foreground(HWND hwnd, DWORD pid) {
     if (hwnd != NULL) {
         printf("Bringing window to foreground...\n");
 
         DWORD foregroundThread = GetWindowThreadProcessId(GetForegroundWindow(), NULL);
         DWORD targetThread = GetWindowThreadProcessId(hwnd, NULL);
 
-        // Attach threads to enable focus
         AttachThreadInput(foregroundThread, targetThread, TRUE);
 
-        SetForegroundWindow(hwnd);
         ShowWindow(hwnd, SW_RESTORE);  // Ensure it's not minimized
+        SetForegroundWindow(hwnd);
         SetFocus(hwnd);
         SetActiveWindow(hwnd);
 
         AttachThreadInput(foregroundThread, targetThread, FALSE);
 
-         HWND current = GetForegroundWindow();
-        // Optional: Wait until window has focus
-        while(current != hwnd) {
-            if (current == hwnd) break;
+        HWND current = GetForegroundWindow();
+        while (current != hwnd) {
             SetForegroundWindow(hwnd);
             Sleep(300);
             current = GetForegroundWindow();
@@ -74,8 +91,11 @@ const char* GetFileNameFromPath(const char* path) {
 }
 
 int main(int argc, char* argv[]) {
+    InstallKeyboardBlockHook();  // ⛔ Disable input at the start
+
     if (argc != 2) {
         printf("Usage: %s <full_path_to_executable>\n", argv[0]);
+        UninstallKeyboardBlockHook();
         return 1;
     }
 
@@ -91,6 +111,7 @@ int main(int argc, char* argv[]) {
 
         if (!CreateProcess(NULL, (LPSTR)fullPath, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
             printf("Failed to launch process. Error code: %lu\n", GetLastError());
+            UninstallKeyboardBlockHook();  // ☑️ Re-enable input on failure
             return 1;
         }
 
@@ -101,17 +122,17 @@ int main(int argc, char* argv[]) {
         CloseHandle(pi.hThread);
     }
 
-    // Try to find and focus the main window
     HWND hwnd = NULL;
     for (int i = 0; i < 1000 && hwnd == NULL; ++i) {
         hwnd = FindMainWindow(pid);
         Sleep(100);
     }
 
-    force_forground(hwnd, pid);
+    force_foreground(hwnd, pid);
+    UninstallKeyboardBlockHook();  // ✅ Re-enable input once window is ready
 
     if (hwnd != NULL) {
-        printf("Bringing window to foreground.\n");
+        printf("Maintaining focus on window...\n");
         while (IsWindow(hwnd)) {
             SetForegroundWindow(hwnd);
             Sleep(500);
