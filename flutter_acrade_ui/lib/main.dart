@@ -4,9 +4,8 @@ import 'package:process_run/process_run.dart';
 import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:path/path.dart' as p;
-import 'package:win32/win32.dart';
-import 'package:ffi/ffi.dart';
-import 'dart:ffi';
+import 'dart:async';
+import 'package:tray_manager/tray_manager.dart';
 
 final String executables_path = "C:\\executables\\";
 bool isLaunching = false;
@@ -53,22 +52,83 @@ void main() async {
 
   WindowOptions windowOptions = WindowOptions(
     backgroundColor: Colors.transparent,
-    skipTaskbar: false,
+    skipTaskbar: true,
     fullScreen: true,
     titleBarStyle: TitleBarStyle.hidden,
   );
 
   windowManager.waitUntilReadyToShow(windowOptions, () async {
+    await windowManager.hide(); // Start hidden
     await windowManager.show();
     await windowManager.focus();
   });
 
   runApp(
-    const MouseRegion(
+    MyTrayApp(child: const MouseRegion(
       cursor: SystemMouseCursors.none, // Hide mouse cursor
       child: ArtcadeApp(),
-    ),
+    ))
   );
+}
+
+
+class MyTrayApp extends StatefulWidget {
+  final Widget child;
+  const MyTrayApp({super.key, required this.child});
+
+  @override
+  State<MyTrayApp> createState() => _MyTrayAppState();
+}
+
+class _MyTrayAppState extends State<MyTrayApp> with TrayListener {
+  @override
+  void initState() {
+    super.initState();
+    _initTray();
+    trayManager.addListener(this);
+  }
+
+  Future<void> _initTray() async {
+    await trayManager.setIcon('assets/icon.ico'); // Path to your icon
+    await trayManager.setContextMenu(Menu(items: [
+      MenuItem(
+        key: 'show',
+        label: 'Show Arcade',
+      ),
+      MenuItem(
+        key: 'exit',
+        label: 'Exit',
+      ),
+    ]));
+  }
+
+  @override
+  void onTrayIconMouseDown() async {
+    // Toggle window visibility when icon is clicked
+    bool isVisible = await windowManager.isVisible();
+    if (isVisible) {
+      await windowManager.hide();
+    } else {
+      await windowManager.show();
+      await windowManager.focus();
+    }
+  }
+
+  @override
+  void onTrayMenuItemClick(MenuItem item) {
+    switch (item.key) {
+      case 'show':
+        windowManager.show();
+        break;
+      case 'exit':
+        exit(0);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return widget.child;
+  }
 }
 
 class ArtcadeApp extends StatelessWidget {
@@ -95,6 +155,8 @@ class _ArcadeHomePageState extends State<ArcadeHomePage> {
   List<String> games = [];
   Map<String, String> gameDevelopers = {};
   int selectedIndex = 0;
+  int count = 0;
+  late Timer _timer;
   String? selectedGameImagePath;
   @override
   void initState() {
@@ -107,6 +169,13 @@ class _ArcadeHomePageState extends State<ArcadeHomePage> {
   void dispose() {
     ServicesBinding.instance.keyboard.removeHandler(_onKey);
     super.dispose();
+  }
+
+  void incr()
+  {
+    setState(() {
+      count++;
+    });
   }
 
   void _loadGameFolders() async {
