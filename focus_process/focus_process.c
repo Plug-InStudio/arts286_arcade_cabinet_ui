@@ -36,6 +36,38 @@ DWORD FindRunningProcess(const char* exeName) {
     return 0;
 }
 
+
+void force_forground(HWND hwnd, DWORD pid)
+{
+    if (hwnd != NULL) {
+        printf("Bringing window to foreground...\n");
+
+        DWORD foregroundThread = GetWindowThreadProcessId(GetForegroundWindow(), NULL);
+        DWORD targetThread = GetWindowThreadProcessId(hwnd, NULL);
+
+        // Attach threads to enable focus
+        AttachThreadInput(foregroundThread, targetThread, TRUE);
+
+        SetForegroundWindow(hwnd);
+        ShowWindow(hwnd, SW_RESTORE);  // Ensure it's not minimized
+        SetFocus(hwnd);
+        SetActiveWindow(hwnd);
+
+        AttachThreadInput(foregroundThread, targetThread, FALSE);
+
+         HWND current = GetForegroundWindow();
+        // Optional: Wait until window has focus
+        while(current != hwnd) {
+            if (current == hwnd) break;
+            SetForegroundWindow(hwnd);
+            Sleep(300);
+            current = GetForegroundWindow();
+        }
+    } else {
+        printf("Unable to find window for PID: %lu\n", pid);
+    }
+}
+
 const char* GetFileNameFromPath(const char* path) {
     const char* p = strrchr(path, '\\');
     return p ? p + 1 : path;
@@ -71,10 +103,12 @@ int main(int argc, char* argv[]) {
 
     // Try to find and focus the main window
     HWND hwnd = NULL;
-    for (int i = 0; i < 50 && hwnd == NULL; ++i) {
+    for (int i = 0; i < 1000 && hwnd == NULL; ++i) {
         hwnd = FindMainWindow(pid);
         Sleep(100);
     }
+
+    force_forground(hwnd, pid);
 
     if (hwnd != NULL) {
         printf("Bringing window to foreground.\n");
